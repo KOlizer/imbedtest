@@ -1,0 +1,208 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:1rem 0;font-family:var(--font-sans)}
+.day-tabs{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+.day-tab{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);background:transparent;transition:all .15s}
+.day-tab.active{background:var(--color-background-info);color:var(--color-text-info);border-color:transparent}
+.ev-type-row{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap}
+.ev-btn{padding:4px 12px;border-radius:16px;font-size:11px;cursor:pointer;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);background:var(--color-background-secondary);transition:all .15s}
+.ev-btn.sel{border-color:transparent;font-weight:500}
+.timeline{display:flex;flex-direction:column;gap:2px}
+.row{display:flex;align-items:stretch;gap:6px;min-height:36px}
+.t-label{width:48px;flex-shrink:0;font-size:11px;color:var(--color-text-tertiary);padding-top:8px;text-align:right}
+.block{flex:1;border-radius:6px;padding:7px 10px;font-size:12px;font-weight:500;line-height:1.4;display:flex;align-items:center}
+.block.sm{min-height:32px}
+.block.lg{min-height:52px}
+.sub{font-size:11px;font-weight:400;margin-top:2px;opacity:.8}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:1.25rem}
+.s-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem;text-align:center}
+.s-num{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.s-lbl{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.legend-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1rem}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary)}
+.dot{width:8px;height:8px;border-radius:50%}
+</style>
+
+<div class="wrap">
+<h2 class="sr-only">요일별 선택 가능한 주간 루틴 플래너</h2>
+
+<div class="legend-row">
+  <div class="leg"><div class="dot" style="background:#E6F1FB;border:1px solid #85B7EB"></div><span style="color:#0C447C">공부</span></div>
+  <div class="leg"><div class="dot" style="background:#EAF3DE;border:1px solid #97C459"></div><span style="color:#3B6D11">이동</span></div>
+  <div class="leg"><div class="dot" style="background:#FAEEDA;border:1px solid #EF9F27"></div><span style="color:#854F0B">헬스</span></div>
+  <div class="leg"><div class="dot" style="background:#EEEDFE;border:1px solid #AFA9EC"></div><span style="color:#3C3489">과외</span></div>
+  <div class="leg"><div class="dot" style="background:#FAECE7;border:1px solid #F0997B"></div><span style="color:#993C1D">데이트/약속</span></div>
+  <div class="leg"><div class="dot" style="background:#F1EFE8;border:1px solid #B4B2A9"></div><span style="color:#444441">자유/게임</span></div>
+  <div class="leg"><div class="dot" style="background:#E1F5EE;border:1px solid #5DCAA5"></div><span style="color:#085041">회사</span></div>
+</div>
+
+<div class="day-tabs" id="dayTabs"></div>
+<div id="evTypeRow" class="ev-type-row"></div>
+<div class="timeline" id="timeline"></div>
+<div class="summary" id="summary"></div>
+</div>
+
+<script>
+const DAYS = ['월','화','수','목','금','토','일'];
+const IS_WED = [false,false,true,false,false,false,false];
+const IS_WKD = [false,false,false,false,false,true,true];
+const IS_FRI = [false,false,false,false,true,false,false];
+
+const EV_TYPES = {
+  weekday: ['헬스','집(공부)','카페(공부)','데이트/약속'],
+  wed: ['수요일(과외)'],
+  weekend_sat: ['과외','과외+데이트'],
+  weekend_sun: ['데이트 없음','데이트']
+};
+
+function getEvTypes(di) {
+  if(IS_WED[di]) return EV_TYPES.wed;
+  if(IS_WKD[di]) return di===5 ? EV_TYPES.weekend_sat : EV_TYPES.weekend_sun;
+  return EV_TYPES.weekday;
+}
+
+const BLOCKS = {
+  common_morning: [
+    {t:'07:00',label:'기상 + 물 한 잔',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'07:00',label:'오픽 말하기 20분',sub:'',bg:'#E6F1FB',tc:'#0C447C',h:32},
+    {t:'07:20',label:'씻기 + 출근 준비',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'07:50',label:'출근길 — 말해보카 50개',sub:'복습 25 + 신규 25',bg:'#EAF3DE',tc:'#3B6D11',h:40},
+    {t:'09:00',label:'회사',sub:'09:00 ~ 18:30',bg:'#E1F5EE',tc:'#085041',h:52},
+    {t:'18:30',label:'퇴근길 — 오픽노잼 or CKA 강의',sub:'30~40분',bg:'#EAF3DE',tc:'#3B6D11',h:40},
+    {t:'19:30',label:'동네 도착 + 이동',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+  ],
+  '헬스': [
+    {t:'20:00',label:'헬스',sub:'1시간',bg:'#FAEEDA',tc:'#854F0B',h:44},
+    {t:'21:00',label:'씻기',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'21:30',label:'저녁 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'22:00',label:'공부 30분',sub:'컨디션 안 좋으면 스킵',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'22:30',label:'자유 / 게임',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',label:'취침',sub:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '집(공부)': [
+    {t:'20:00',label:'저녁 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'20:30',label:'공부',sub:'20:30 ~ 22:00 (1.5시간)',bg:'#E6F1FB',tc:'#0C447C',h:52},
+    {t:'22:00',label:'자유 / 게임',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',label:'취침',sub:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '카페(공부)': [
+    {t:'19:00',label:'카페 이동',sub:'퇴근 후 바로',bg:'#EAF3DE',tc:'#3B6D11',h:32},
+    {t:'19:30',label:'공부',sub:'19:30 ~ 22:00 (2.5시간)',bg:'#E6F1FB',tc:'#0C447C',h:60},
+    {t:'22:00',label:'귀가 + 저녁 or 씻기',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',label:'취침',sub:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '데이트/약속': [
+    {t:'19:30',label:'데이트 / 약속',sub:'',bg:'#FAECE7',tc:'#993C1D',h:52},
+    {t:'귀가',label:'씻고 취침 준비',sub:'공부 없음',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',label:'취침',sub:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '수요일(과외)': [
+    {t:'20:00',label:'저녁 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'20:30',label:'과외 시작',sub:'20:00 ~ 22:00',bg:'#EEEDFE',tc:'#3C3489',h:52},
+    {t:'22:00',label:'씻기 + 자유',sub:'공부 없음, 회복 우선',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',label:'취침',sub:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '과외': [
+    {t:'09:00',label:'기상 + 아침 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'09:30',label:'공부',sub:'09:30 ~ 11:30 (2시간)',bg:'#E6F1FB',tc:'#0C447C',h:52},
+    {t:'11:30',label:'이동 준비 + 점심',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'13:00',label:'과외',sub:'13:00 ~ 종료',bg:'#EEEDFE',tc:'#3C3489',h:52},
+    {t:'과외 후',label:'자유 / 게임',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'저녁 후',label:'공부 1시간',sub:'컨디션 따라',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'00:30',label:'취침',sub:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '과외+데이트': [
+    {t:'09:00',label:'기상 + 아침 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'09:30',label:'공부',sub:'09:30 ~ 11:30 (2시간)',bg:'#E6F1FB',tc:'#0C447C',h:52},
+    {t:'11:30',label:'이동 준비 + 점심',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'13:00',label:'과외',sub:'13:00 ~ 종료',bg:'#EEEDFE',tc:'#3C3489',h:52},
+    {t:'과외 후',label:'데이트',sub:'',bg:'#FAECE7',tc:'#993C1D',h:44},
+    {t:'귀가',label:'씻고 취침',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+  ],
+  '데이트 없음': [
+    {t:'09:00',label:'기상 + 아침 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'09:30',label:'공부',sub:'09:30 ~ 12:00 (2.5시간)',bg:'#E6F1FB',tc:'#0C447C',h:60},
+    {t:'12:00',label:'점심',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'13:00',label:'자유 / 게임',sub:'오전 공부 끝, 죄책감 없이',bg:'#F1EFE8',tc:'#444441',h:44},
+    {t:'저녁',label:'저녁 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'저녁 후',label:'공부 1시간',sub:'복습 or 강의',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'공부 후',label:'자유 / 게임',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',label:'취침',sub:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '데이트': [
+    {t:'09:00',label:'기상 + 아침 식사',sub:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'10:00',label:'오픽 말하기 30분',sub:'이것만 하고 끝',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'10:30',label:'데이트',sub:'약 9시간',bg:'#FAECE7',tc:'#993C1D',h:60},
+    {t:'귀가',label:'씻고 바로 취침',sub:'공부 없음, 죄책감 없이',bg:'#F1EFE8',tc:'#444441',h:36},
+  ],
+};
+
+const STUDY_HRS = {
+  '헬스': 0.5, '집(공부)': 1.5, '카페(공부)': 2.5,
+  '데이트/약속': 0, '수요일(과외)': 0,
+  '과외': 3, '과외+데이트': 2, '데이트 없음': 3.5, '데이트': 0.5
+};
+
+const BASE_STUDY = 1.7;
+
+let selectedDay = 0;
+let dayTypes = ['헬스','집(공부)','수요일(과외)','헬스','데이트/약속','과외','데이트 없음'];
+
+function render() {
+  const tabs = document.getElementById('dayTabs');
+  tabs.innerHTML = DAYS.map((d,i)=>`<button class="day-tab${i===selectedDay?' active':''}" onclick="selDay(${i})">${d}${IS_WED[i]?'<br><span style="font-size:10px;font-weight:400;opacity:.7">과외</span>':IS_WKD[i]&&i===5?'<br><span style="font-size:10px;font-weight:400;opacity:.7">과외</span>':''}</button>`).join('');
+
+  const evTypes = getEvTypes(selectedDay);
+  const evRow = document.getElementById('evTypeRow');
+  if(evTypes.length > 1) {
+    evRow.style.display = 'flex';
+    evRow.innerHTML = '<span style="font-size:11px;color:var(--color-text-tertiary);padding-top:4px;margin-right:4px">저녁 유형</span>' +
+      evTypes.map(t=>`<button class="ev-btn${dayTypes[selectedDay]===t?' sel':''}" style="${dayTypes[selectedDay]===t?'background:#E6F1FB;color:#0C447C;border-color:#85B7EB':''}" onclick="selType('${t}')">${t}</button>`).join('');
+  } else {
+    evRow.style.display = 'none';
+  }
+
+  const isWkd = IS_WKD[selectedDay];
+  const blocks = isWkd
+    ? (BLOCKS[dayTypes[selectedDay]] || [])
+    : [...(BLOCKS.common_morning || []), ...(BLOCKS[dayTypes[selectedDay]] || [])];
+
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = blocks.map(b=>`
+    <div class="row">
+      <div class="t-label">${b.t}</div>
+      <div class="block" style="background:${b.bg};color:${b.tc};min-height:${b.h}px">
+        <div><div>${b.label}</div>${b.sub?`<div class="sub">${b.sub}</div>`:''}</div>
+      </div>
+    </div>
+  `).join('');
+
+  renderSummary();
+}
+
+function renderSummary() {
+  let total = 0;
+  let morning = BASE_STUDY * 5;
+  let evening = 0;
+  let weekend = 0;
+  for(let i=0;i<5;i++) evening += (STUDY_HRS[dayTypes[i]] || 0);
+  for(let i=5;i<7;i++) weekend += (STUDY_HRS[dayTypes[i]] || 0);
+  total = morning + evening + weekend;
+
+  document.getElementById('summary').innerHTML = `
+    <div class="s-card"><div class="s-num">${morning.toFixed(1)}h</div><div class="s-lbl">아침+퇴근길 (평일)</div></div>
+    <div class="s-card"><div class="s-num">${evening.toFixed(1)}h</div><div class="s-lbl">평일 저녁</div></div>
+    <div class="s-card"><div class="s-num">${weekend.toFixed(1)}h</div><div class="s-lbl">주말</div></div>
+    <div class="s-card" style="grid-column:1/-1;background:var(--color-background-info)">
+      <div class="s-num" style="color:var(--color-text-info)">주 ${total.toFixed(1)}시간</div>
+      <div class="s-lbl" style="color:var(--color-text-info)">이번 주 예상 공부량</div>
+    </div>
+  `;
+}
+
+function selDay(i) { selectedDay = i; render(); }
+function selType(t) { dayTypes[selectedDay] = t; render(); }
+
+render();
+</script>
