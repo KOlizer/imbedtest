@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간 루틴 플래너</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9f9f7;min-height:100vh;padding:1.5rem 1rem}
+  .container{max-width:640px;margin:0 auto}
+  h1{font-size:16px;font-weight:600;color:#1a1a18;margin-bottom:1.25rem}
+
+  .lgrow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem}
+  .lg{display:flex;align-items:center;gap:5px;font-size:11px;color:#888}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+  .day-tabs{display:flex;gap:5px;margin-bottom:.75rem;flex-wrap:wrap}
+  .day-tab{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #ddd;color:#666;background:#fff;line-height:1.4;text-align:center;transition:all .15s}
+  .day-tab:hover{border-color:#aaa}
+  .day-tab.active{background:#E6F1FB;color:#0C447C;border-color:#85B7EB}
+
+  .ev-row{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+  .ev-label{font-size:11px;color:#aaa;margin-right:2px}
+  .ev-btn{padding:4px 11px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid #e0e0e0;color:#666;background:#f4f4f2;transition:all .15s}
+  .ev-btn:hover{border-color:#aaa}
+  .ev-btn.sel{background:#E6F1FB;color:#0C447C;border-color:#85B7EB;font-weight:500}
+
+  .tl{display:flex;flex-direction:column;gap:2px}
+  .row{display:flex;align-items:stretch;gap:8px}
+  .tlabel{width:44px;flex-shrink:0;font-size:11px;color:#aaa;padding-top:8px;text-align:right}
+  .blk{flex:1;border-radius:7px;padding:7px 11px;font-size:12px;font-weight:500;line-height:1.4}
+  .sub{font-size:11px;font-weight:400;margin-top:2px;opacity:.75}
+
+  .sumgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:1.25rem}
+  .sc{background:#fff;border-radius:8px;padding:.75rem;text-align:center;border:1px solid #eee}
+  .sn{font-size:19px;font-weight:600;color:#1a1a18}
+  .sl{font-size:11px;color:#888;margin-top:2px}
+  .sc.total{grid-column:1/-1;background:#E6F1FB;border-color:#B5D4F4}
+  .sc.total .sn{color:#0C447C}
+  .sc.total .sl{color:#185FA5}
+
+  .saved{font-size:11px;color:#aaa;margin-left:auto;transition:opacity .3s}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>주간 루틴 플래너</h1>
+
+  <div class="lgrow">
+    <div class="lg"><div class="dot" style="background:#E6F1FB;border:1px solid #85B7EB"></div><span style="color:#0C447C">공부</span></div>
+    <div class="lg"><div class="dot" style="background:#EAF3DE;border:1px solid #97C459"></div><span style="color:#3B6D11">이동</span></div>
+    <div class="lg"><div class="dot" style="background:#FAEEDA;border:1px solid #EF9F27"></div><span style="color:#854F0B">헬스</span></div>
+    <div class="lg"><div class="dot" style="background:#EEEDFE;border:1px solid #AFA9EC"></div><span style="color:#3C3489">과외</span></div>
+    <div class="lg"><div class="dot" style="background:#FAECE7;border:1px solid #F0997B"></div><span style="color:#993C1D">데이트/약속</span></div>
+    <div class="lg"><div class="dot" style="background:#F1EFE8;border:1px solid #B4B2A9"></div><span style="color:#444441">자유</span></div>
+    <div class="lg"><div class="dot" style="background:#E1F5EE;border:1px solid #5DCAA5"></div><span style="color:#085041">회사</span></div>
+  </div>
+
+  <div class="day-tabs" id="dayTabs"></div>
+  <div class="ev-row" id="evRow"></div>
+  <div class="tl" id="tl"></div>
+  <div class="sumgrid" id="sumgrid"></div>
+</div>
+
+<script>
+const DAYS=['월','화','수','목','금','토','일'];
+const IS_WED=[false,false,true,false,false,false,false];
+
+const EV_TYPES={
+  wd:['헬스','집(공부)','카페(공부)','데이트/약속'],
+  wed:['수요일(과외)'],
+  sat:['과외','과외+데이트'],
+  sun:['데이트 없음','데이트']
+};
+
+function getTypes(di){
+  if(IS_WED[di]) return EV_TYPES.wed;
+  if(di===5) return EV_TYPES.sat;
+  if(di===6) return EV_TYPES.sun;
+  return EV_TYPES.wd;
+}
+
+const COMMON=[
+  {t:'07:00',l:'기상 + 물 한 잔',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+  {t:'07:00',l:'오픽 말하기 20분',s:'CKA 취득 후 → CKA 복습으로 교체',bg:'#E6F1FB',tc:'#0C447C',h:38},
+  {t:'07:20',l:'씻기 + 출근 준비',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+  {t:'07:50',l:'출근길 — 말해보카 50개',s:'복습 25 + 신규 25',bg:'#EAF3DE',tc:'#3B6D11',h:40},
+  {t:'09:00',l:'회사',s:'09:00 ~ 18:30',bg:'#E1F5EE',tc:'#085041',h:52},
+  {t:'18:30',l:'퇴근길 — 오픽노잼 or CKA 강의',s:'30~40분',bg:'#EAF3DE',tc:'#3B6D11',h:40},
+  {t:'19:30',l:'동네 도착 + 이동',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+];
+
+const EVE={
+  '헬스':[
+    {t:'20:00',l:'헬스',s:'1시간',bg:'#FAEEDA',tc:'#854F0B',h:44},
+    {t:'21:00',l:'씻기',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'21:30',l:'저녁 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'22:00',l:'공부 30분',s:'컨디션 안 좋으면 스킵',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'22:30',l:'자유 / 게임',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'00:30',l:'취침',s:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '집(공부)':[
+    {t:'20:00',l:'저녁 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'20:30',l:'공부',s:'20:30 ~ 22:00 (1.5시간)',bg:'#E6F1FB',tc:'#0C447C',h:52},
+    {t:'22:00',l:'자유 / 게임',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',l:'취침',s:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '카페(공부)':[
+    {t:'19:00',l:'카페 이동 (퇴근 후 바로)',s:'',bg:'#EAF3DE',tc:'#3B6D11',h:32},
+    {t:'19:30',l:'공부',s:'19:30 ~ 22:00 (2.5시간)',bg:'#E6F1FB',tc:'#0C447C',h:60},
+    {t:'22:00',l:'귀가 + 저녁 or 씻기',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',l:'취침',s:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '데이트/약속':[
+    {t:'19:30',l:'데이트 / 약속',s:'',bg:'#FAECE7',tc:'#993C1D',h:52},
+    {t:'귀가',l:'씻고 취침 준비',s:'공부 없음',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',l:'취침',s:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '수요일(과외)':[
+    {t:'20:00',l:'저녁 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'20:30',l:'과외',s:'20:00 ~ 22:00',bg:'#EEEDFE',tc:'#3C3489',h:52},
+    {t:'22:00',l:'씻기 + 자유',s:'공부 없음, 회복 우선',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',l:'취침',s:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '과외':[
+    {t:'09:00',l:'기상 + 아침 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'09:30',l:'공부',s:'09:30 ~ 11:30 (2시간)',bg:'#E6F1FB',tc:'#0C447C',h:52},
+    {t:'11:30',l:'이동 준비 + 점심',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'13:00',l:'과외',s:'10:00 ~ 13:00',bg:'#EEEDFE',tc:'#3C3489',h:52},
+    {t:'과외 후',l:'자유 / 게임',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'저녁 후',l:'공부 1시간',s:'복습 or 강의',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'00:30',l:'취침',s:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '과외+데이트':[
+    {t:'09:00',l:'기상 + 아침 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'09:30',l:'공부',s:'09:30 ~ 11:30 (2시간)',bg:'#E6F1FB',tc:'#0C447C',h:52},
+    {t:'11:30',l:'이동 준비 + 점심',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'13:00',l:'과외',s:'10:00 ~ 13:00',bg:'#EEEDFE',tc:'#3C3489',h:52},
+    {t:'과외 후',l:'데이트',s:'',bg:'#FAECE7',tc:'#993C1D',h:44},
+    {t:'귀가',l:'씻고 취침',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+  ],
+  '데이트 없음':[
+    {t:'09:00',l:'기상 + 아침 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'09:30',l:'공부',s:'09:30 ~ 12:00 (2.5시간)',bg:'#E6F1FB',tc:'#0C447C',h:60},
+    {t:'12:00',l:'점심',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'13:00',l:'자유 / 게임',s:'오전 공부 끝, 죄책감 없이',bg:'#F1EFE8',tc:'#444441',h:44},
+    {t:'저녁',l:'저녁 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:32},
+    {t:'저녁 후',l:'공부 1시간',s:'복습 or 강의',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'공부 후',l:'자유 / 게임',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'00:30',l:'취침',s:'',bg:'#F1EFE8',tc:'#5F5E5A',h:32},
+  ],
+  '데이트':[
+    {t:'09:00',l:'기상 + 아침 식사',s:'',bg:'#F1EFE8',tc:'#444441',h:36},
+    {t:'10:00',l:'오픽 말하기 30분',s:'이것만 하고 끝',bg:'#E6F1FB',tc:'#0C447C',h:36},
+    {t:'10:30',l:'데이트',s:'약 9시간',bg:'#FAECE7',tc:'#993C1D',h:60},
+    {t:'귀가',l:'씻고 바로 취침',s:'공부 없음, 죄책감 없이',bg:'#F1EFE8',tc:'#444441',h:36},
+  ],
+};
+
+const STUDY_H={
+  '헬스':0.5,'집(공부)':1.5,'카페(공부)':2.5,'데이트/약속':0,
+  '수요일(과외)':0,'과외':3,'과외+데이트':2,'데이트 없음':3.5,'데이트':0.5
+};
+const BASE=1.7;
+const STORAGE_KEY='lizer-planner-v1';
+
+let selDay=0;
+let dayTypes=['헬스','집(공부)','수요일(과외)','헬스','데이트/약속','과외','데이트 없음'];
+
+function load(){
+  try{
+    const saved=localStorage.getItem(STORAGE_KEY);
+    if(saved) dayTypes=JSON.parse(saved);
+  }catch(e){}
+}
+
+function save(){
+  try{
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(dayTypes));
+  }catch(e){}
+}
+
+function render(){
+  document.getElementById('dayTabs').innerHTML=DAYS.map((d,i)=>{
+    const note=IS_WED[i]?'과외':i===5?'과외':'';
+    return `<button class="day-tab${i===selDay?' active':''}" onclick="selD(${i})">${d}${note?`<br><span style="font-size:10px;opacity:.6">${note}</span>`:''}</button>`;
+  }).join('');
+
+  const types=getTypes(selDay);
+  const er=document.getElementById('evRow');
+  if(types.length>1){
+    er.style.display='flex';
+    er.innerHTML=`<span class="ev-label">저녁 유형</span>`+
+      types.map(t=>`<button class="ev-btn${dayTypes[selDay]===t?' sel':''}" onclick="selT('${t}')">${t}</button>`).join('');
+  }else{
+    er.style.display='none';
+  }
+
+  const isWkd=selDay>=5;
+  const blocks=isWkd?[...(EVE[dayTypes[selDay]]||[])]:
+    [...COMMON,...(EVE[dayTypes[selDay]]||[])];
+
+  document.getElementById('tl').innerHTML=blocks.map(b=>`
+    <div class="row">
+      <div class="tlabel">${b.t}</div>
+      <div class="blk" style="background:${b.bg};color:${b.tc};min-height:${b.h}px">
+        ${b.l}${b.s?`<div class="sub">${b.s}</div>`:''}
+      </div>
+    </div>`).join('');
+
+  const eve=DAYS.slice(0,5).reduce((a,_,i)=>a+(STUDY_H[dayTypes[i]]||0),0);
+  const wkd=DAYS.slice(5).reduce((a,_,i)=>a+(STUDY_H[dayTypes[i+5]]||0),0);
+  const morning=Math.round(BASE*5*10)/10;
+  const total=Math.round((morning+eve+wkd)*10)/10;
+
+  document.getElementById('sumgrid').innerHTML=`
+    <div class="sc"><div class="sn">${morning}h</div><div class="sl">아침+퇴근길</div></div>
+    <div class="sc"><div class="sn">${Math.round(eve*10)/10}h</div><div class="sl">평일 저녁</div></div>
+    <div class="sc"><div class="sn">${Math.round(wkd*10)/10}h</div><div class="sl">주말</div></div>
+    <div class="sc total"><div class="sn">주 ${total}시간</div><div class="sl">이번 주 예상 공부량</div></div>`;
+}
+
+function selD(i){selDay=i;render();}
+function selT(t){dayTypes[selDay]=t;save();render();}
+
+load();
+render();
+</script>
+</body>
+</html>
